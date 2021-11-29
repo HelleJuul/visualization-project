@@ -1,5 +1,5 @@
 import dash
-from dash import html, dcc, Input, Output
+from dash import html, dcc, Input, Output, State
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import total_sales
@@ -169,25 +169,32 @@ def update_title_to_match_chosen_month(month):
     month_index = int(time[-2:]) - 1
     month = month_names[month_index]
     year = time[:4]
-    title = month + " " + year
+    title = "Average Price per m2 in " + month + " " + year
     return  title
 
 
 @app.callback(
-    Output("m2price_plot", "figure"),
     Output("zip_dropdown", "value"),
+    Input("m2price_map", "clickData"),
+    State("zip_dropdown", "value")   
+)
+def add_regions_selected_on_map_to_dropdown(clickData, selected_zips):
+    if clickData:
+        zip_from_map = clickData['points'][0]['customdata'][0]
+        if zip_from_map not in selected_zips:
+            selected_zips.append(zip_from_map)
+    return selected_zips
+
+
+@app.callback(
+    Output("m2price_plot", "figure"),
     Input("month_slider", "value"),
     Input("zip_dropdown", "value"),
-    Input("m2price_map", "clickData")
     )
-def update_potition_of_vertical_line(month, zips, clickData):
-    y_values = [str(i) for i in zips]
-    if clickData:
-        y_map = clickData['points'][0]['customdata'][0]
-        y_values.append(str(y_map))
+def update_potition_of_vertical_line(month, selected_zips):
     fig = px.line(m2prices, 
                   x='index', 
-                  y=y_values, 
+                  y=[str(i) for i in selected_zips], 
                   markers=True,
                   template='simple_white',
                   color_discrete_sequence=px.colors.qualitative.Vivid,
@@ -200,7 +207,7 @@ def update_potition_of_vertical_line(month, zips, clickData):
                   line_width=3, 
                   line_dash="dash", 
                   line_color="#3398db")
-    return fig, [int(i) for i in y_values]
+    return fig
 
 
 if __name__ == "__main__":
