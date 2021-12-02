@@ -1,0 +1,22 @@
+.rc-slider-mark-text {
+    font-size: small;
+    color: #212529;
+}
+
+.alert {
+    font-size: 0.8rem;
+}
+
+.Select--multi .Select-value {
+    border: 2px #F39C12;
+    color: white;
+}
+
+.Select-value-label, .Select-value-icon{
+    background-color: #F39C12;
+    color: white;
+}
+
+.blockquote-footer {
+    padding: 45px 0px 10px 0px;
+}

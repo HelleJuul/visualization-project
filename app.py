@@ -65,12 +65,12 @@ with open('zip_code_areas_fyn_with_id.geojson', "r") as f:
     zip_code_areas = json.load(f)
 
 # Dataset with the average m2 price for houses sold on Fyn optimized for the choropleth map
-with open('average_m2prices_per_zip_code_with_unique_id.csv', "r") as f:
-    data = pd.read_csv(f)
+with open('m2prices_for_choropleth.csv', "r") as f:
+    m2prices_map = pd.read_csv(f)
 
 # Dataset with the average m2 price for houses sold on Fyn optimized for the line chart
-with open('m2prices.csv', 'r') as f:
-    m2prices = pd.read_csv(f)
+with open('m2prices_for_line_chart.csv', 'r') as f:
+    m2prices_line_chart = pd.read_csv(f)
     
 
 #
@@ -92,11 +92,11 @@ def translate_zips_to_ids(zips):
 #
 
 # A list with the months covered in the dataset (i.e. 2021-11)
-dates = list(data.columns)[4:]
+dates = list(m2prices_map.columns)[4:]
 
 # Slider for choosing the month and year
 marks = {i: {'label': ""} for i in range(0, len(dates))}
-for i in range(0, len(dates), 4):
+for i in range(0, len(dates), 2):
     marks[i] = {'label': dates[i]}
 
 m2price_slider = dcc.Slider(id='month_slider',
@@ -107,7 +107,7 @@ m2price_slider = dcc.Slider(id='month_slider',
                        marks=marks)
 
 # Dropdown menu for selecting zip code areas
-zips_and_names = data[['zip_code', 'name']].copy()
+zips_and_names = m2prices_map[['zip_code', 'name']].copy()
 zips_and_names.sort_values('zip_code', inplace=True)
 zips_and_names.drop_duplicates(inplace=True)
 zipped = zip(zips_and_names.zip_code, zips_and_names.name)
@@ -119,39 +119,43 @@ m2price_dropdown = dcc.Dropdown(id="zip_dropdown",
                                 multi=True)
 
 # The content of page 1 styled to be two rows
-page1 = [dbc.Container(
-            [
-                html.H4(id="m2price_header", 
-                        children="Average Price per m2 in November 2021"), 
-                
-                html.Div(children=["Note",
-                                  html.Br(),  
-                                  "If no sales were made in a given zip code area " 
-                                  "during the chosen month the average price per m2 is set to 0 kr."], 
-                        className="alert alert-info"), 
-                
-                dcc.Graph(id='m2price_map'),
-                
-                html.Div("Choose Month", 
-                         className="form-label"),
-                
-                m2price_slider
+page1 = [
+        dbc.Container(
+            [                
+                html.H4(id="m2price_header", children="November 2021"), 
             ],
-            style={'width':'50%', 'display':'inline-block','vertical-align':'top'}
+            style={'width':'50%', 'display':'inline-block', 'vertical-align':'top'}
         ), 
         dbc.Container(
             [
                 html.H4("Development over Time"),
-                
-                html.Div("Choose Zip Code Areas", 
-                         className="form-label"),
-                
-                m2price_dropdown,
-                
-                dcc.Graph(id="m2price_plot")
             ], 
             style={'width':'50%','display':'inline-block','vertical-align':'top'}
-        )
+        ),
+        dbc.Container(
+            [                
+                dcc.Graph(id='m2price_map'),
+            ],
+            style={'width':'50%', 'display':'inline-block', 'vertical-align':'top'}
+        ), 
+        dbc.Container(
+            [   
+                html.Div("Choose Zip Code Areas", className="form-label"),
+                m2price_dropdown,
+                dcc.Graph(id="m2price_plot")
+            ], 
+            style={'width':'50%','display':'inline-block', 'vertical-align':'top'}
+        ),
+        dbc.Container(
+            [  
+                html.Div("Choose Month", className="form-label"),
+                
+                m2price_slider,
+                
+                html.Div("If no sales were made in a given zip code area during a "
+                       "given month the average price per m2 is set to 0 DKK.", className="blockquote-footer")
+            ],
+        ),
     ]
 
 #
@@ -166,7 +170,7 @@ page1 = [dbc.Container(
 def update_choropleth_with_m2_prices(month, selected_zips):
     '''Create and update the choropleth map of Fyn with the average m2 price'''
     # Change the coloring according to the chosen month
-    fig = px.choropleth(data,
+    fig = px.choropleth(m2prices_map,
                 geojson=zip_code_areas, 
                 color=dates[month], 
                 locations='id',
@@ -211,7 +215,7 @@ def update_title_to_match_chosen_month(month):
                    'August', 'September', 'October', 'November', 'December']
     month = month_names[month_index]
     year = time[:4]
-    title = "Average Price per m2 in " + month + " " + year
+    title = month + " " + year
     return  title
 
 
@@ -239,14 +243,14 @@ def update_line_chart_with_m2_prices(month, selected_zips):
     '''Create and update the line chart showing the development in m2 prices
     in the selected zip code areas'''
     # Draw a line for each of the selected zip code areas
-    fig = px.line(m2prices, 
+    fig = px.line(m2prices_line_chart, 
                   x='index', 
                   y=[str(i) for i in selected_zips],
                   range_y=[0, 35000], 
                   markers=True,
                   template='simple_white',
                   color_discrete_sequence=px.colors.qualitative.Vivid,
-                  height=600,
+                  height=450,
                   labels={'index': 'Year and Month', 
                           'value': 'Average Price pr m2 in DKK',
                           'variable': 'Zip Code'})
