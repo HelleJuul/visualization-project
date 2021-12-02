@@ -2,13 +2,14 @@ import dash
 from dash import html, dcc, Input, Output, State
 import dash_bootstrap_components as dbc
 import plotly.express as px
+import plotly.graph_objects as go
 import total_sales
 
 import json
 import pandas as pd
 
 
-with open('postnumre_unik_id.geojson', "r") as f:
+with open('zip_code_areas_fyn_with_id.geojson', "r") as f:
     zip_code_areas = json.load(f)
 
 with open('average_m2prices_per_zip_code_with_unique_id.csv', "r") as f:
@@ -91,7 +92,8 @@ dropdown_options = [{'label': str(z) + " " + name, 'value': z} for z, name in zi
 m2price_dropdown = dcc.Dropdown(id="zip_dropdown",
                                 options=dropdown_options,
                                 value=[5000, 5300],
-                                multi=True
+                                multi=True,
+                                className=".DropdownMenu"
                                )
 
 m2price_graph = dcc.Graph(id="m2price_plot")
@@ -139,11 +141,21 @@ def render_page_content(pathname):
         return html.H1("404: Not found", className="text-danger")
 
 
+def translate_zips_to_ids(zips):
+    ids = []
+    for zip_code in zips:
+        zip_text = str(zip_code)
+        for item in zip_code_areas['features']:
+            if item['properties']['POSTNR_TXT'] == zip_text:
+                ids.append(item['id'])
+    return ids
+
 @app.callback(
     Output("m2price_map", "figure"),
-    Input("month_slider", "value")
+    Input("month_slider", "value"),
+    Input("zip_dropdown", "value")
     )
-def change_month_of_m2price_choropleth(month):
+def change_month_of_m2price_choropleth(month, selected_zips):
     fig = px.choropleth(data,
                 geojson=zip_code_areas, 
                 color=dates[month], 
@@ -151,12 +163,26 @@ def change_month_of_m2price_choropleth(month):
                 projection="mercator",
                 hover_name="name",
                 hover_data=["zip_code"],
-                range_color=[0,30000],
+                range_color=[0,35000],
+                color_continuous_scale='Viridis',
                 template='simple_white',
                 labels={dates[month]: 'Average price per m2 in DKK'},)
     fig.update_geos(fitbounds="locations", visible=False)
     fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
     fig.update_layout(coloraxis_colorbar_x=-0.08)
+    
+    # Highlight selected zips
+    id_list = translate_zips_to_ids(selected_zips)
+    fig.add_trace(go.Choropleth(geojson=zip_code_areas,
+                                locationmode="geojson-id",
+                                locations=id_list,
+                                z = [1]*len(id_list),
+                                colorscale = [[0, 'rgba(0,0,0,0)'],[1, 'rgba(0,0,0,0)']],
+                                colorbar=None,
+                                showscale =False,
+                                marker = {"line": {"color": "#F39C12", "width": 1}},
+                                hoverinfo='skip'
+                                ))
     return  fig
 
 
