@@ -1,40 +1,23 @@
 import dash
 from dash import html, dcc, Input, Output, State
 import dash_bootstrap_components as dbc
+
 import plotly.express as px
 import plotly.graph_objects as go
-import total_sales
 
 import json
 import pandas as pd
 
 
-with open('zip_code_areas_fyn_with_id.geojson', "r") as f:
-    zip_code_areas = json.load(f)
+### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ###
 
-with open('average_m2prices_per_zip_code_with_unique_id.csv', "r") as f:
-    data = pd.read_csv(f)
-    
-with open('m2prices.csv', 'r') as f:
-    m2prices = pd.read_csv(f)
+###         I N I T I A L I Z I N G    T H E   A P P                                                ###
 
-dates = list(data.columns)[4:]
+### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ###
 
-month_names = ['January', 
-               'February', 
-               'March', 
-               'April', 
-               'May', 
-               'June', 
-               'July', 
-               'August', 
-               'September', 
-               'October', 
-               'November', 
-               'December']
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY], suppress_callback_exceptions=True) 
 
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY], suppress_callback_exceptions=True)
-
+# Setting the main layout with a fixed navbar at the top
 navbar = dbc.Navbar(
     dbc.Container(
         [
@@ -46,9 +29,9 @@ navbar = dbc.Navbar(
                 align="center",
                 className="g-0",
             ),
-            dbc.NavItem(dbc.NavLink("Average price per m2", href="/page-1", active='exact')),
-            dbc.NavItem(dbc.NavLink("Total sales", href="/page-2", active='exact')),
-            dbc.NavItem(dbc.NavLink("Page 3", href="/page-3", active='exact')),
+            dbc.NavItem(dbc.NavLink("Average Price per m2", href="/page-1", active='exact')),
+            dbc.NavItem(dbc.NavLink("House Prices", href="/page-2", active='exact')),
+            dbc.NavItem(dbc.NavLink("Sales per Month", href="/page-3", active='exact')),
         ]
     ),
     color="primary",
@@ -56,20 +39,62 @@ navbar = dbc.Navbar(
     fixed="top",
 )
 
-m2price_header = html.H4(id="m2price_header", 
-                         children="Average Price per m2 in November 2021")
+app.layout = dbc.Container(
+    [
+        dcc.Location(id="url"),
+        navbar,
+        dbc.Container(id='page-content', class_name='main', style={"padding-top": "90px"}),
+        html.Hr()
+    ],
+    fluid=True,
+)
 
-m2price_note = html.Div(children=["Note",
-                                  html.Br(),  
-                                  "If no sales were made in a given zip code area " 
-                                  "during the chosen month the average price per m2 is set to 0 kr."], 
-                        className="alert alert-info")
+
+### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ###
+
+###         P A G E   1  -  price per m2                                                            ###
+
+### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ###
+
+#
+# Loading the data
+#
+
+# Geojson file with the shape of the zip code areas on Fyn with a unique ID pr shape 
+with open('zip_code_areas_fyn_with_id.geojson', "r") as f:
+    zip_code_areas = json.load(f)
+
+# Dataset with the average m2 price for houses sold on Fyn optimized for the choropleth map
+with open('average_m2prices_per_zip_code_with_unique_id.csv', "r") as f:
+    data = pd.read_csv(f)
+
+# Dataset with the average m2 price for houses sold on Fyn optimized for the line chart
+with open('m2prices.csv', 'r') as f:
+    m2prices = pd.read_csv(f)
+    
+
+#
+#   Helper functions
+#
+def translate_zips_to_ids(zips):
+    '''Return a list with the IDs corresponding to the zip codes in zips'''
+    ids = []
+    for zip_code in zips:
+        zip_text = str(zip_code)
+        for item in zip_code_areas['features']:
+            if item['properties']['POSTNR_TXT'] == zip_text:
+                ids.append(item['id'])
+    return ids
 
 
+#
+# Creating the content
+#
 
+# A list with the months covered in the dataset (i.e. 2021-11)
+dates = list(data.columns)[4:]
 
-m2price_map = dcc.Graph(id='m2price_map')
-
+# Slider for choosing the month and year
 marks = {i: {'label': ""} for i in range(0, len(dates))}
 for i in range(0, len(dates), 4):
     marks[i] = {'label': dates[i]}
@@ -81,81 +106,66 @@ m2price_slider = dcc.Slider(id='month_slider',
                        step=1,
                        marks=marks)
 
-
-
-
+# Dropdown menu for selecting zip code areas
 zips_and_names = data[['zip_code', 'name']].copy()
 zips_and_names.sort_values('zip_code', inplace=True)
 zips_and_names.drop_duplicates(inplace=True)
-dropdown_options = [{'label': str(z) + " " + name, 'value': z} for z, name in zip(zips_and_names.zip_code, zips_and_names.name)]
+zipped = zip(zips_and_names.zip_code, zips_and_names.name)
+dropdown_options = [{'label': str(z) + " " + name, 'value': z} for z, name in zipped]
 
 m2price_dropdown = dcc.Dropdown(id="zip_dropdown",
                                 options=dropdown_options,
-                                value=[5000, 5300],
-                                multi=True,
-                                className=".DropdownMenu"
-                               )
+                                value=[5000, 5900],
+                                multi=True)
 
-m2price_graph = dcc.Graph(id="m2price_plot")
+# The content of page 1 styled to be two rows
+page1 = [dbc.Container(
+            [
+                html.H4(id="m2price_header", 
+                        children="Average Price per m2 in November 2021"), 
+                
+                html.Div(children=["Note",
+                                  html.Br(),  
+                                  "If no sales were made in a given zip code area " 
+                                  "during the chosen month the average price per m2 is set to 0 kr."], 
+                        className="alert alert-info"), 
+                
+                dcc.Graph(id='m2price_map'),
+                
+                html.Div("Choose Month", 
+                         className="form-label"),
+                
+                m2price_slider
+            ],
+            style={'width':'50%', 'display':'inline-block','vertical-align':'top'}
+        ), 
+        dbc.Container(
+            [
+                html.H4("Development over Time"),
+                
+                html.Div("Choose Zip Code Areas", 
+                         className="form-label"),
+                
+                m2price_dropdown,
+                
+                dcc.Graph(id="m2price_plot")
+            ], 
+            style={'width':'50%','display':'inline-block','vertical-align':'top'}
+        )
+    ]
 
-
-app.layout = dbc.Container([
-        dcc.Location(id="url"),
-        navbar,
-        dbc.Container(id='page-content', class_name='main', style={"padding-top": "90px"}),
-        html.Hr()
-    ],
-    fluid=True)
-
-
-
-
-@app.callback(
-    Output("page-content", "children"), 
-    Input("url", "pathname")
-    )
-def render_page_content(pathname):
-    if pathname == "/":
-        return html.P("This is the content of the home page!")
-    elif pathname == "/page-1":
-        return [dbc.Container(children=[m2price_header, 
-                                        m2price_note, 
-                                        m2price_map,
-                                        html.Div("Choose Month", className="form-label"),
-                                        m2price_slider],
-                              style={'width':'50%', 'display':'inline-block','vertical-align':'top'}
-                             ), 
-                dbc.Container(children=[html.H4("Development over Time"),
-                                        html.Div("Choose Zip Code Areas", className="form-label"),
-                                        m2price_dropdown,
-                                        m2price_graph], 
-                              style={'width':'50%','display':'inline-block','vertical-align':'top'}
-                              )
-                ]
-    elif pathname == "/page-2":
-        return dcc.Graph(figure=total_sales.fig)
-    elif pathname == "/page-3":
-        return html.P("You found page 3!")
-    # If the user tries to reach a different page, return a 404 message
-    else:
-        return html.H1("404: Not found", className="text-danger")
-
-
-def translate_zips_to_ids(zips):
-    ids = []
-    for zip_code in zips:
-        zip_text = str(zip_code)
-        for item in zip_code_areas['features']:
-            if item['properties']['POSTNR_TXT'] == zip_text:
-                ids.append(item['id'])
-    return ids
+#
+#   Callbacks
+#
 
 @app.callback(
     Output("m2price_map", "figure"),
     Input("month_slider", "value"),
     Input("zip_dropdown", "value")
     )
-def change_month_of_m2price_choropleth(month, selected_zips):
+def update_choropleth_with_m2_prices(month, selected_zips):
+    '''Create and update the choropleth map of Fyn with the average m2 price'''
+    # Change the coloring according to the chosen month
     fig = px.choropleth(data,
                 geojson=zip_code_areas, 
                 color=dates[month], 
@@ -167,11 +177,15 @@ def change_month_of_m2price_choropleth(month, selected_zips):
                 color_continuous_scale='Viridis',
                 template='simple_white',
                 labels={dates[month]: 'Average price per m2 in DKK'},)
+    # Zoom in on Fyn
     fig.update_geos(fitbounds="locations", visible=False)
+    # Remove margins
     fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+    # Move colorbar to the left
     fig.update_layout(coloraxis_colorbar_x=-0.08)
-    
-    # Highlight selected zips
+    # Change ticks on colorbar from the default 10k to 10000
+    fig.update_coloraxes(colorbar_tickformat=',2f')
+    # Highlight selected zips on the map
     id_list = translate_zips_to_ids(selected_zips)
     fig.add_trace(go.Choropleth(geojson=zip_code_areas,
                                 locationmode="geojson-id",
@@ -181,8 +195,7 @@ def change_month_of_m2price_choropleth(month, selected_zips):
                                 colorbar=None,
                                 showscale =False,
                                 marker = {"line": {"color": "#F39C12", "width": 1}},
-                                hoverinfo='skip'
-                                ))
+                                hoverinfo='skip'))
     return  fig
 
 
@@ -191,8 +204,11 @@ def change_month_of_m2price_choropleth(month, selected_zips):
     Input("month_slider", "value")
     )
 def update_title_to_match_chosen_month(month):
+    '''Change the title to show the chosen month and year.'''
     time = dates[month]
     month_index = int(time[-2:]) - 1
+    month_names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
+                   'August', 'September', 'October', 'November', 'December']
     month = month_names[month_index]
     year = time[:4]
     title = "Average Price per m2 in " + month + " " + year
@@ -204,7 +220,9 @@ def update_title_to_match_chosen_month(month):
     Input("m2price_map", "clickData"),
     State("zip_dropdown", "value")   
 )
-def add_regions_selected_on_map_to_dropdown(clickData, selected_zips):
+def update_dropdown(clickData, selected_zips):
+    '''Add regions selected on the choropleth map to the selected values in 
+    the dropdown menu.'''
     if clickData:
         zip_from_map = clickData['points'][0]['customdata'][0]
         if zip_from_map not in selected_zips:
@@ -217,10 +235,14 @@ def add_regions_selected_on_map_to_dropdown(clickData, selected_zips):
     Input("month_slider", "value"),
     Input("zip_dropdown", "value"),
     )
-def update_potition_of_vertical_line(month, selected_zips):
+def update_line_chart_with_m2_prices(month, selected_zips):
+    '''Create and update the line chart showing the development in m2 prices
+    in the selected zip code areas'''
+    # Draw a line for each of the selected zip code areas
     fig = px.line(m2prices, 
                   x='index', 
-                  y=[str(i) for i in selected_zips], 
+                  y=[str(i) for i in selected_zips],
+                  range_y=[0, 35000], 
                   markers=True,
                   template='simple_white',
                   color_discrete_sequence=px.colors.qualitative.Vivid,
@@ -228,12 +250,62 @@ def update_potition_of_vertical_line(month, selected_zips):
                   labels={'index': 'Year and Month', 
                           'value': 'Average Price pr m2 in DKK',
                           'variable': 'Zip Code'})
+    # Force the y-axis to always start at zero
     fig.update_yaxes(rangemode="tozero")
+    # Change the ticks from the standard 10k to 10000
+    fig.update_layout(yaxis={'tickformat': ',2f'})
+    # Add a vertical line in the plot showing the chosen month and year
     fig.add_vline(x=dates[month], 
                   line_width=3, 
                   line_dash="dash", 
                   line_color="#3398db")
     return fig
+
+
+### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ###
+
+###         P A G E   2  -  Sales prices                                                            ###
+
+### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ###
+
+
+page2 = html.P("This is page 2!")
+
+
+
+### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ###
+
+###         P A G E   3   -   Sales per month                                                       ###
+
+### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ###
+
+
+page3 = html.P("You found page 3!")
+
+
+
+### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ###
+
+###         R E N D E R   P A G E   C O N T E N T                                                   ###
+
+### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ###
+
+@app.callback(
+    Output("page-content", "children"), 
+    Input("url", "pathname")
+    )
+def render_page_content(pathname):
+    if pathname == "/":
+        return html.P("This is the content of the home page!")
+    elif pathname == "/page-1":
+        return page1
+    elif pathname == "/page-2":
+        return page2
+    elif pathname == "/page-3":
+        return page3
+    # If the user tries to reach a different page, return a 404 message
+    else:
+        return html.H1("404: Not found", className="text-danger")
 
 
 if __name__ == "__main__":
