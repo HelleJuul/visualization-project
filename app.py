@@ -104,7 +104,8 @@ m2price_slider = dcc.Slider(id='month_slider',
                        max=len(dates)-1, 
                        value=len(dates)-1,
                        step=1,
-                       marks=marks)
+                       marks=marks,
+                       included=False)
 
 # Dropdown menu for selecting zip code areas
 zips_and_names = m2prices_map[['zip_code', 'name']].copy()
@@ -152,8 +153,9 @@ page1 = [
                 
                 m2price_slider,
                 
-                html.Div("If no sales were made in a given zip code area during a "
-                       "given month the average price per m2 is set to 0 DKK.", className="blockquote-footer")
+                html.Div("Note: If no sales were made in a given zip code area during a "
+                         "given month the average price per m2 is set to 0 DKK.", 
+                         id="footnote")
             ],
         ),
     ]
@@ -242,6 +244,7 @@ def update_dropdown(clickData, selected_zips):
 def update_line_chart_with_m2_prices(month, selected_zips):
     '''Create and update the line chart showing the development in m2 prices
     in the selected zip code areas'''
+
     # Draw a line for each of the selected zip code areas
     fig = px.line(m2prices_line_chart, 
                   x='index', 
@@ -262,7 +265,14 @@ def update_line_chart_with_m2_prices(month, selected_zips):
     fig.add_vline(x=dates[month], 
                   line_width=3, 
                   line_dash="dash", 
-                  line_color="#3398db")
+                  line_color="#3498DB")
+    # Add the average m2 price for all of Fyn for reference
+    fig.add_trace(go.Scatter(mode='lines',
+                             x = m2prices_line_chart['index'],
+                             y = m2prices_line_chart['fyn'],
+                             name="All of Fyn",
+                             marker_color='gray',
+                             opacity=0.2))
     return fig
 
 
