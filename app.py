@@ -1,5 +1,5 @@
 import dash
-from dash import html, dcc, Input, Output, State
+from dash import html, dcc, Input, Output, State, callback_context
 import dash_bootstrap_components as dbc
 
 import plotly.express as px
@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 
 import json
 import pandas as pd
+import numpy as np
 
 
 ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ###
@@ -31,7 +32,7 @@ navbar = dbc.Navbar(
             ),
             dbc.NavItem(dbc.NavLink("Average Price per m2", href="/page-1", active='exact')),
             dbc.NavItem(dbc.NavLink("House Prices", href="/page-2", active='exact')),
-            dbc.NavItem(dbc.NavLink("Sales per Month", href="/page-3", active='exact')),
+            dbc.NavItem(dbc.NavLink("Area Information", href="/page-3", active='exact')),
         ]
     ),
     color="primary",
@@ -104,7 +105,8 @@ m2price_slider = dcc.Slider(id='month_slider',
                        max=len(dates)-1, 
                        value=len(dates)-1,
                        step=1,
-                       marks=marks)
+                       marks=marks,
+                       included=False)
 
 # Dropdown menu for selecting zip code areas
 zips_and_names = m2prices_map[['zip_code', 'name']].copy()
@@ -165,7 +167,7 @@ page1 = [
 @app.callback(
     Output("m2price_map", "figure"),
     Input("month_slider", "value"),
-    Input("zip_dropdown", "value")
+    Input("zip_dropdown", "value"),
     )
 def update_choropleth_with_m2_prices(month, selected_zips):
     '''Create and update the choropleth map of Fyn with the average m2 price'''
@@ -180,7 +182,7 @@ def update_choropleth_with_m2_prices(month, selected_zips):
                 range_color=[0,35000],
                 color_continuous_scale='Viridis',
                 template='simple_white',
-                labels={dates[month]: 'Average price per m2 in DKK'},)
+                labels={dates[month]: 'Average price per m2 in DKK'})
     # Zoom in on Fyn
     fig.update_geos(fitbounds="locations", visible=False)
     # Remove margins
@@ -200,6 +202,8 @@ def update_choropleth_with_m2_prices(month, selected_zips):
                                 showscale =False,
                                 marker = {"line": {"color": "#F39C12", "width": 1}},
                                 hoverinfo='skip'))
+    #fig.update_traces(hovertemplate=""" <extra></extra> %{customdata[0]} """)
+    
     return  fig
 
 
@@ -283,8 +287,227 @@ page2 = html.P("This is page 2!")
 
 ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ###
 
+p3view = pd.read_csv("p3view.csv")
+sales_volume = pd.read_csv("sales_volume_by_zip.csv")
+violin_fig = px.violin(p3view[p3view["Zip Code"]==5000], y="Sales Price")
+violin_fig.update_layout(title={"text":"Sales Price Distribution",  "x":0.5})
+bar_chart = px.bar(sales_volume, x="month", y="5000")
+bar_chart.update_layout(title={"text":"Number of Sales per Month",  "x":0.5})
 
-page3 = html.P("You found page 3!")
+page3 = [
+        html.H2(style={"text-align":"center"},children=["Area Information"]),
+        html.Div(style = {"margin":"0 40% 0 40%"}, 
+            children=[
+                dcc.Dropdown(id="zip_dropdown_page3",
+                                 options=dropdown_options,
+                                 value=5000,
+                                 placeholder="choose zip code",
+                                 multi=False),
+                html.Br(),
+                html.Div(style={"margin":"0 25%", "display":"block"}, children=[
+                dbc.Button("Filter Results", id="open-button-offcanvas-page-3",
+                           n_clicks=0,),
+                ]),
+        ]),
+        html.Br(),
+        html.Div(style={},
+            children = [
+            html.H4("Sales Information", style={"padding":"10px auto"}),
+            html.Div(style = {"display":"inline-block", "width":"50%", "text-align":"center"},
+                    children=[
+                        dcc.Loading(type="circle",
+                            children=[
+                            dcc.Graph(id="total-sales-zipcode", style={"padding":"0 auto"}, figure=bar_chart),
+                        ]),
+            ]),
+            html.Div(style = {"display":"inline-block", "width":"50%"},
+                    children=[
+                        dcc.Loading(type="circle",
+                            children=[
+                                dcc.Graph(id="violin-sales-zipcode", style={"padding":"0 auto"}, figure=violin_fig),
+                        ]),
+            ]),
+        ]),
+        html.Br(),
+        html.Div(
+                children=[
+                    html.H4("Sold House Characteristics"),
+                    
+        ]),
+        dbc.Offcanvas(id = "offcanvas-page-3",
+                      title="Filter Options",
+                      is_open = False,
+                      placement = "end",
+                      autofocus = True,
+                      scrollable = True,
+                      style = {"width":"30%"},
+                      children=[                              
+                              dbc.Switch(id="switch-price-filter",label="filter on price", style={"margin":"0 10%", "display":"inline-block", "width":"50%"}),
+                              html.Div(id="price-filter-container", style={"margin":"10px 5%", "opacity":"50%"},
+                                    children = [
+                                    html.P("Price in DKK", style={"text-align":"center"}),
+                                    html.Div(id="price-slider-info",style={"margin":"10px 5%"} ),
+                                    dcc.RangeSlider(id="price-slider-p3",min=0, max=100, tooltip={"placement": "bottom"}),
+                                    ]
+                              ),
+                              html.Br(),
+                              dbc.Switch(id="switch-area-filter",label="filter by area", style={"margin":"0 10%", "display":"inline-block", "width":"50%"}),
+                              html.Div(id="area-filter-container", style={"margin":"10px 5%", "opacity":"50%"},
+                                    children = [
+                                        html.P("Living area (m2)", style={"text-align":"center"}),
+                                        html.Div(id="area-slider-info", style={"margin":"10px 5%"}),
+                                        dcc.RangeSlider(id="area-slider-p3",min=0, max=100, step=1, tooltip={"placement": "bottom"}),
+                                        ]
+                              ),
+                              html.Div(style={"margin":"0 40%"}, children = [
+                                  dbc.Button("Apply",id="button-apply-filters", class_name="btn-success", style={"padding":"10px 50%"}),
+                                  ]
+                                  ),
+                          ],
+        ),
+
+        
+
+         ]
+
+@app.callback(
+    Output("offcanvas-page-3", "is_open"),
+    Input("open-button-offcanvas-page-3", "n_clicks"),
+    [State("offcanvas-page-3", "is_open")]
+    )
+def open_and_close_off_canvas_p3(n_clicks, is_open):
+    if n_clicks:
+        return not is_open
+    return is_open
+
+@app.callback(
+        Output("price-filter-container","style"),
+        Output("price-slider-p3","disabled"),
+        Input("switch-price-filter","value"),
+        State("switch-price-filter","value")
+    )
+def activate_filtering_on_price(switch_on, state):
+    if state:
+        return  {"margin":"10px 5%", "opacity":"100%"}, False
+    else:
+        return {"margin":"10px 5%", "opacity":"50%"}, True
+        
+@app.callback(
+        Output("area-filter-container","style"),
+        Output("area-slider-p3","disabled"),
+        Input("switch-area-filter","value"),
+        State("switch-area-filter","value")
+    )
+def activate_filtering_on_area(switch_on, state):
+    if state:
+        return  {"margin":"10px 5%", "opacity":"100%"}, False
+    else:
+        return {"margin":"10px 5%", "opacity":"50%"}, True
+    
+@app.callback(
+    Output("violin-sales-zipcode", "figure"),
+    Output("total-sales-zipcode", "figure"),
+    Input("zip_dropdown_page3","value"),
+    Input("button-apply-filters","n_clicks"),
+    State("zip_dropdown_page3", "value"),
+    State("switch-area-filter","value"),
+    State("area-slider-p3", "value"),
+    State("switch-price-filter","value"),
+    State("price-slider-p3", "value"),
+    State("violin-sales-zipcode", "figure"),
+    State("total-sales-zipcode", "figure"),
+    )
+def update_p3_sales_plots(selected_zip, nclicks, zip_current, filter_area, area_lim, filter_price, price_lim, curr_viol, curr_bar):
+    violin_fig, bar_chart = curr_viol, curr_bar
+    
+    ctx = callback_context
+    id_called = None
+    if ctx.triggered:
+        id_called = ctx.triggered[0]["prop_id"].split(".")[0]    
+    
+    if id_called and "zip_dropdown" in id_called and selected_zip:
+        violin_fig = px.violin(p3view[p3view["Zip Code"]==selected_zip], y="Sales Price")
+        violin_fig.update_layout(title={"text":"Sales Price Distribution",  "x":0.5})
+        bar_chart = px.bar(sales_volume, x="month", y=str(selected_zip), labels={"month":"Month",str(selected_zip):"Number of Sales"} )
+        bar_chart.update_layout(title={"text":"Number of Sales per Month",  "x":0.5})
+    elif id_called and "button-apply-filters" in id_called:
+
+        relevant_sales = p3view[p3view["Zip Code"] == zip_current]
+        if filter_area:
+            max_area = max(area_lim)
+            min_area = min(area_lim)
+            relevant_sales = relevant_sales[(relevant_sales["Living Area"] >= min_area) & (relevant_sales["Living Area"] <= max_area)]
+        if filter_price:
+            relevant_sales = relevant_sales[(relevant_sales["Sales Price"] >= price_lim[0]) & (relevant_sales["Sales Price"] <= price_lim[1])]
+        violin_fig = px.violin(relevant_sales, y="Sales Price")
+        violin_fig.update_layout(title={"text":"Sales Price Distribution",  "x":0.5})
+        filtered_count = []
+        for month in sales_volume["month"]:
+            map_func = lambda x: x[1]["Zip Code"] == zip_current and (month in x[1]["Registration Date"])
+            filtered_count.append(sum(map(map_func, relevant_sales.iterrows())))
+        filtered_volume = pd.DataFrame(sales_volume["month"].copy(), columns=["month"])
+        filtered_volume["Number of Sales"] = np.array(filtered_count)
+        bar_chart = px.bar(filtered_volume, x="month", y="Number of Sales", labels={"month":"Month"} )
+        bar_chart.update_layout(title={"text":"Number of Sales per Month",  "x":0.5})
+    return violin_fig, bar_chart
+
+@app.callback(
+        Output("price-slider-p3", "max"),
+        Output("price-slider-p3", "min"),
+        Output("price-slider-p3", "value"),
+        Input("zip_dropdown_page3", "value"),
+        State("price-slider-p3", "max"),
+        State("price-slider-p3", "min"),
+        State("price-slider-p3", "value"),
+    )
+def update_filter_price_options(selected_zip, curr_max, curr_min, curr_val):
+    if selected_zip:
+        relevant_sales = p3view[p3view["Zip Code"] == selected_zip]
+        max_price = relevant_sales["Sales Price"].max()
+        min_price = relevant_sales["Sales Price"].min()
+        return max_price, min_price, [min_price, max_price]
+    return  curr_max, curr_min, curr_val
+    
+@app.callback(
+        Output("price-slider-info","children"),
+        Input("price-slider-p3", "value")
+    )
+def update_filter_price_info(slider_values):
+    info = [ html.B(f"Min. price: {slider_values[0]//1000}K"), html.Br(),html.B(f"Max. price: {slider_values[1]//1000}K") ]
+    return info
+
+
+@app.callback(
+        Output("area-slider-p3", "max"),
+        Output("area-slider-p3", "min"),
+        Output("area-slider-p3", "value"),
+        Input("zip_dropdown_page3", "value"),
+        State("area-slider-p3", "max"),
+        State("area-slider-p3", "min"),
+        State("area-slider-p3", "value"),
+    )
+def update_filter_area_options(selected_zip, curr_max, curr_min, curr_val):
+    if selected_zip:
+        relevant_sales = p3view[p3view["Zip Code"] == selected_zip]
+        max_area = relevant_sales["Living Area"].max()
+        min_area = relevant_sales["Living Area"].min()
+        return max_area, min_area,  [max_area, min_area]
+    return curr_max, curr_min, curr_val
+
+@app.callback(
+        Output("area-slider-info","children"),
+        Input("area-slider-p3", "value")
+    )
+def update_filter_area_info(slider_values):
+    max_area = max(slider_values)
+    min_area = min(slider_values)
+    info = [ html.B(f"Min. area:     {min_area}"), html.Br(),html.B(f"Max. area:     {max_area}") ]
+    return info
+
+# @app.callback(
+#     Output("total-sales-zipcode"),
+#     Input("zipcode-search-page3")
+#     )
 
 
 
