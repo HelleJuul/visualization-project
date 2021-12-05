@@ -70,7 +70,7 @@ number_of_sales.to_csv("sales_volume_by_zip.csv")
 #%%
 p3view = sales[["tinglysningsDato","iAltKoebeSum", "beboelsesAreal", "antVaerelser", "antBadevaerelser"  , "postNr"] ]
 p3view["antBadevaerelser"] = p3view["antBadevaerelser"].fillna("unknown")
-p3view["antVaerelser"] = p3view["antVaerelser"].astype("str").fillna("unknown")
+p3view["antVaerelser"] = p3view["antVaerelser"].replace("","unknown")
 
 p3view.dropna(subset=["iAltKoebeSum"], inplace=True)
 p3view = p3view[p3view["iAltKoebeSum"] != 0]

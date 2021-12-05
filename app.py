@@ -312,7 +312,7 @@ page3 = [
         html.Br(),
         html.Div(style={},
             children = [
-            html.H4("Sales Information", style={"padding":"10px auto"}),
+            # html.H4("Sales Information", style={"padding":"10px auto"}),
             html.Div(style = {"display":"inline-block", "width":"50%", "text-align":"center"},
                     children=[
                         dcc.Loading(type="circle",
@@ -327,12 +327,6 @@ page3 = [
                                 dcc.Graph(id="violin-sales-zipcode", style={"padding":"0 auto"}, figure=violin_fig),
                         ]),
             ]),
-        ]),
-        html.Br(),
-        html.Div(
-                children=[
-                    html.H4("Sold House Characteristics"),
-                    
         ]),
         dbc.Offcanvas(id = "offcanvas-page-3",
                       title="Filter Options",
@@ -351,7 +345,7 @@ page3 = [
                                     ]
                               ),
                               html.Br(),
-                              dbc.Switch(id="switch-area-filter",label="filter by area", style={"margin":"0 10%", "display":"inline-block", "width":"50%"}),
+                              dbc.Switch(id="switch-area-filter",label="filter by living area", style={"margin":"0 10%", "display":"inline-block", "width":"50%"}),
                               html.Div(id="area-filter-container", style={"margin":"10px 5%", "opacity":"50%"},
                                     children = [
                                         html.P("Living area (m2)", style={"text-align":"center"}),
@@ -359,8 +353,38 @@ page3 = [
                                         dcc.RangeSlider(id="area-slider-p3",min=0, max=100, step=1, tooltip={"placement": "bottom"}),
                                         ]
                               ),
+                              html.Br(),
+                              dbc.Switch(id="switch-rooms-filter",label="filter by rooms", style={"margin":"0 10%", "display":"inline-block", "width":"50%"}),
+                              html.Div(id="rooms-filter-container", style={"margin":"10px 5%", "opacity":"50%"},
+                                    children = [
+                                        html.Div( style={"text-align":"left", "display":"inline-block", "width":"50%" },
+                                                 children=[html.P("Number of bathrooms", style={"margin":"0 10%"}),]
+                                        ),
+                                        html.Div(style={"display":"inline-block", "width":"50%"},
+                                            children=[
+                                                dcc.Input(id="input-min-bathrooms",type="number", style={"width":"50px"}),
+                                                html.P(" to ", style={"display":"inline-block", "margin":"0 5%"}),
+                                                dcc.Input(id="input-max-bathrooms",type="number",style={"width":"50px"}),
+                                        ]),
+                                        html.Br(),
+                                        html.Br(),
+                                        html.Div( style={"text-align":"left", "display":"inline-block", "width":"50%" },
+                                                 children=[html.P("Number of bedrooms", style={"margin":"0 10%"}),]
+                                        ),
+                                        html.Div(style={"display":"inline-block", "width":"50%"},
+                                            children=[
+                                                dcc.Input(id="input-min-bedrooms",type="number", style={"width":"50px"}),
+                                                html.P(" to ", style={"display":"inline-block", "margin":"0 5%"}),
+                                                dcc.Input(id="input-max-bedrooms",type="number",style={"width":"50px"}),
+                                        ]),
+                                        dcc.Checklist(id="room-check-unknown", options=[{"label":"  include unknown number of rooms", "value":"include"}],
+                                                       value = ["include"], style={"margin":"20px 5%"}),
+                                        ]
+                              ),
+                              html.Br(),
+                              html.Br(),
                               html.Div(style={"margin":"0 40%"}, children = [
-                                  dbc.Button("Apply",id="button-apply-filters", class_name="btn-success", style={"padding":"10px 50%"}),
+                                  dbc.Button("Apply",id="button-apply-filters", class_name="btn-success", style={"width":"80%"}),
                                   ]
                                   ),
                           ],
@@ -403,6 +427,22 @@ def activate_filtering_on_area(switch_on, state):
         return  {"margin":"10px 5%", "opacity":"100%"}, False
     else:
         return {"margin":"10px 5%", "opacity":"50%"}, True
+
+@app.callback(
+        Output("rooms-filter-container","style"),
+        Output("input-min-bathrooms","disabled"),
+        Output("input-max-bathrooms","disabled"),
+        Output("input-min-bedrooms","disabled"),
+        Output("input-max-bedrooms","disabled"),
+        Output("room-check-unknown","disabled"),
+        Input("switch-rooms-filter","value"),
+        State("switch-rooms-filter","value")
+    )
+def activate_filtering_on_rooms(switch_on, state):
+    if state:
+        return  {"margin":"10px 5%", "opacity":"100%"}, False, False, False, False, False
+    else:
+        return {"margin":"10px 5%", "opacity":"50%"}, True, True, True, True, True
     
 @app.callback(
     Output("violin-sales-zipcode", "figure"),
@@ -414,10 +454,21 @@ def activate_filtering_on_area(switch_on, state):
     State("area-slider-p3", "value"),
     State("switch-price-filter","value"),
     State("price-slider-p3", "value"),
+    State("switch-rooms-filter","value"),
+    State("input-min-bathrooms", "value"),
+    State("input-max-bathrooms", "value"),
+    State("input-min-bedrooms", "value"),
+    State("input-max-bedrooms", "value"),
+    State("room-check-unknown","value"),
     State("violin-sales-zipcode", "figure"),
     State("total-sales-zipcode", "figure"),
     )
-def update_p3_sales_plots(selected_zip, nclicks, zip_current, filter_area, area_lim, filter_price, price_lim, curr_viol, curr_bar):
+def update_p3_sales_plots(selected_zip, nclicks, zip_current, filter_area, area_lim, filter_price, price_lim, filter_rooms, min_bath, max_bath, min_bed, max_bed, incl_unknown, curr_viol, curr_bar):
+    """
+        Update sales information plots w. filtering
+        Note: Essentially unreadable code -- sry
+    """
+    
     violin_fig, bar_chart = curr_viol, curr_bar
     
     ctx = callback_context
@@ -437,8 +488,20 @@ def update_p3_sales_plots(selected_zip, nclicks, zip_current, filter_area, area_
             max_area = max(area_lim)
             min_area = min(area_lim)
             relevant_sales = relevant_sales[(relevant_sales["Living Area"] >= min_area) & (relevant_sales["Living Area"] <= max_area)]
+        
         if filter_price:
             relevant_sales = relevant_sales[(relevant_sales["Sales Price"] >= price_lim[0]) & (relevant_sales["Sales Price"] <= price_lim[1])]
+        
+        if incl_unknown and filter_rooms:
+            unknown_rooms = relevant_sales[(relevant_sales["Number of Bathrooms"] == "unknown") | (relevant_sales["Number of Bedrooms"] == "unknown")]
+        
+        if filter_rooms:
+            min_bath, max_bath, min_bed, max_bed = str(min_bath), str(max_bath), str(min_bed), str(max_bed)
+            relevant_sales = relevant_sales[(relevant_sales["Number of Bathrooms"] >= min_bath) & (relevant_sales["Number of Bathrooms"] <= max_bath)]
+            relevant_sales = relevant_sales[(relevant_sales["Number of Bedrooms"] >= min_bed) & (relevant_sales["Number of Bedrooms"] <= max_bed)]
+            if incl_unknown:
+                relevant_sales = pd.concat([relevant_sales, unknown_rooms])
+        
         violin_fig = px.violin(relevant_sales, y="Sales Price")
         violin_fig.update_layout(title={"text":"Sales Price Distribution",  "x":0.5})
         filtered_count = []
@@ -473,7 +536,7 @@ def update_filter_price_options(selected_zip, curr_max, curr_min, curr_val):
         Input("price-slider-p3", "value")
     )
 def update_filter_price_info(slider_values):
-    info = [ html.B(f"Min. price: {slider_values[0]//1000}K"), html.Br(),html.B(f"Max. price: {slider_values[1]//1000}K") ]
+    info = [ html.B("Min. price: {:3,d}".format(slider_values[0])), html.Br(),html.B("Max. price: {:3,d}".format(slider_values[1])) ]
     return info
 
 
@@ -503,6 +566,76 @@ def update_filter_area_info(slider_values):
     min_area = min(slider_values)
     info = [ html.B(f"Min. area:     {min_area}"), html.Br(),html.B(f"Max. area:     {max_area}") ]
     return info
+
+
+@app.callback(
+        Output("input-min-bathrooms", "min"),
+        Output("input-max-bathrooms", "max"),
+        Output("input-min-bathrooms", "value"),
+        Output("input-max-bathrooms", "value"),
+        Input("zip_dropdown_page3", "value"),
+        State("input-min-bathrooms", "min"),
+        State("input-max-bathrooms", "max"),
+    )
+def update_filter_bathroom_options_zip(selected_zip, curr_min, curr_max):
+    if selected_zip:
+        relevant_sales = p3view[p3view["Zip Code"] == selected_zip]
+        # ugly!
+        val = relevant_sales["Number of Bathrooms"].unique()
+        val = val[ val != "unknown"  ]
+        max_num = val.max()
+        min_num = val.min()
+        return min_num, max_num, min_num, max_num
+    return curr_min, curr_max, curr_min, curr_max
+
+@app.callback(
+        Output("input-min-bathrooms", "max"),
+        Input("input-max-bathrooms", "value"),
+        )
+def max_input_min_bathrooms(max_min):
+    return max_min
+
+@app.callback(
+        Output("input-max-bathrooms", "min"),
+        Input("input-min-bathrooms", "value"),
+        )
+def min_input_max_bathrooms(min_max):
+    return min_max
+
+@app.callback(
+        Output("input-min-bedrooms", "min"),
+        Output("input-max-bedrooms", "max"),
+        Output("input-min-bedrooms", "value"),
+        Output("input-max-bedrooms", "value"),
+        Input("zip_dropdown_page3", "value"),
+        State("input-min-bedrooms", "min"),
+        State("input-max-bedrooms", "max"),
+    )
+def update_filter_bedrooms_options_zip(selected_zip, curr_min, curr_max):
+    if selected_zip:
+        relevant_sales = p3view[p3view["Zip Code"] == selected_zip]
+        val = relevant_sales["Number of Bedrooms"].unique()
+        val = val[ val != "unknown"]
+        max_num = val.max()
+        min_num = val.min()
+        return min_num, max_num, min_num, max_num
+    return curr_min, curr_max, curr_min, curr_max
+
+@app.callback(
+        Output("input-min-bedrooms", "max"),
+        Input("input-max-bedrooms", "value"),
+        )
+def max_input_min_bedrooms(max_min):
+    return max_min
+
+@app.callback(
+        Output("input-max-bedrooms", "min"),
+        Input("input-min-bedrooms", "value"),
+        )
+def min_input_max_bedrooms(min_max):
+    return min_max
+
+
 
 # @app.callback(
 #     Output("total-sales-zipcode"),
