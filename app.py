@@ -151,11 +151,7 @@ page1 = [
             [  
                 html.Div("Choose Month", className="form-label"),
                 
-                m2price_slider,
-                
-                html.Div("Note: If no sales were made in a given zip code area during a "
-                         "given month the average price per m2 is set to 0 DKK.", 
-                         id="footnote")
+                m2price_slider
             ],
         ),
     ]
@@ -171,18 +167,22 @@ page1 = [
     )
 def update_choropleth_with_m2_prices(month, selected_zips):
     '''Create and update the choropleth map of Fyn with the average m2 price'''
+    selected_month = dates[month]
     # Change the coloring according to the chosen month
     fig = px.choropleth(m2prices_map,
                 geojson=zip_code_areas, 
-                color=dates[month], 
+                color=selected_month, 
                 locations='id',
                 projection="mercator",
                 hover_name="name",
-                hover_data=["zip_code"],
+                hover_data={'id': False,
+                            "zip_code": True,
+                            selected_month: ':.2f'},
+                
                 range_color=[0,35000],
                 color_continuous_scale='Viridis',
                 template='simple_white',
-                labels={dates[month]: 'Average price per m2 in DKK'},)
+                labels={selected_month: 'Average price per m2 in DKK'})
     # Zoom in on Fyn
     fig.update_geos(fitbounds="locations", visible=False)
     # Remove margins
@@ -191,12 +191,35 @@ def update_choropleth_with_m2_prices(month, selected_zips):
     fig.update_layout(coloraxis_colorbar_x=-0.08)
     # Change ticks on colorbar from the default 10k to 10000
     fig.update_coloraxes(colorbar_tickformat=',2f')
+    # Make the hover data look nice
+    area_zips_and_names = list(m2prices_map['zip_code'].apply(str) + " " + m2prices_map['name'])
+    fig.update_traces(hovertemplate='<b>%{customdata}</b><br>%{z: .2f} kr.', 
+                      customdata=area_zips_and_names)
+    # Color NaN areas grey (and still make the hover data look nice)
+    nan_filter = m2prices_map[selected_month].isna()
+    nan_area_ids = m2prices_map['id'][nan_filter]
+    nan_area_zips_and_names = list(m2prices_map['zip_code'][nan_filter].apply(str) + 
+                                   " " + 
+                                   m2prices_map['name'][nan_filter])
+    fig.add_trace(go.Choropleth(geojson = zip_code_areas,
+                                locationmode = "geojson-id",
+                                locations = nan_area_ids,
+                                z = [1] * len(nan_area_ids),
+                                colorscale = [[0, 'rgba(192,192,192,1)'],[1, 'rgba(192,192,192,1)']],
+                                colorbar = None,
+                                showscale = False,
+                                hovertemplate = '<b>%{customdata}</b>'+
+                                                '<br>'+
+                                                '<i>%{text}</i><extra></extra>',
+                                text = ['No sales'] * len(nan_area_ids),
+                                customdata = nan_area_zips_and_names
+                                ))
     # Highlight selected zips on the map
-    id_list = translate_zips_to_ids(selected_zips)
+    selected_areas_ids = translate_zips_to_ids(selected_zips)
     fig.add_trace(go.Choropleth(geojson=zip_code_areas,
                                 locationmode="geojson-id",
-                                locations=id_list,
-                                z = [1]*len(id_list),
+                                locations=selected_areas_ids,
+                                z = [1]*len(selected_areas_ids),
                                 colorscale = [[0, 'rgba(0,0,0,0)'],[1, 'rgba(0,0,0,0)']],
                                 colorbar=None,
                                 showscale =False,
@@ -230,7 +253,7 @@ def update_dropdown(clickData, selected_zips):
     '''Add regions selected on the choropleth map to the selected values in 
     the dropdown menu.'''
     if clickData:
-        zip_from_map = clickData['points'][0]['customdata'][0]
+        zip_from_map = clickData['points'][0]['customdata'][0:4]
         if zip_from_map not in selected_zips:
             selected_zips.append(zip_from_map)
     return selected_zips
@@ -244,7 +267,6 @@ def update_dropdown(clickData, selected_zips):
 def update_line_chart_with_m2_prices(month, selected_zips):
     '''Create and update the line chart showing the development in m2 prices
     in the selected zip code areas'''
-
     # Draw a line for each of the selected zip code areas
     fig = px.line(m2prices_line_chart, 
                   x='index', 
@@ -273,6 +295,9 @@ def update_line_chart_with_m2_prices(month, selected_zips):
                              name="All of Fyn",
                              marker_color='gray',
                              opacity=0.2))
+    # Make the hover text look nicer
+    fig.update_traces(hovertemplate=None)
+    fig.update_layout(hovermode="x")
     return fig
 
 
