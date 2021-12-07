@@ -3,6 +3,7 @@ import pandas as pd
 from dateutil.parser import parse
 import plotly.express as px
 import numpy as np
+import re
 
 # Loading the sales data
 with open('fyn.json') as f:
@@ -16,6 +17,7 @@ with open('m2prices_for_line_chart.csv') as f:
 ATTRIBUTES = ['tinglysningsDato', 
               'iAltKoebeSum', 
               'beboelsesAreal', 
+              'content',
               'antBadevaerelser',
               'antVaerelser',
               'kommuneNavn', 
@@ -47,7 +49,7 @@ for zipcode in sales.postNr.unique():
     number_of_sales[str(zipcode)] = np.array(num_sales)
 
 number_of_sales.rename(columns={"iAltKoebeSum":"Sales Price", "tinglysningsDato":"Registration Date", "beboelsesAreal":"Living Area",
-               "antVaerelser":"Number of Bedrooms", "antBadevaerelser":"Number of Bathrooms", "postNr":"Zip Code" },
+               "antVaerelser":"Number of Bedrooms", "antBadevaerelser":"Number of Bathrooms","grundAreal":"Ground Area" , "postNr":"Zip Code" },
               inplace=True)
 number_of_sales.to_csv("sales_volume_by_zip.csv")
 
@@ -68,13 +70,30 @@ number_of_sales.to_csv("sales_volume_by_zip.csv")
 
 # fig.update_layout(mapbox = {'style': 'open-street-map'})
 #%%
-p3view = sales[["tinglysningsDato","iAltKoebeSum", "beboelsesAreal", "antVaerelser", "antBadevaerelser"  , "postNr"] ]
+p3view = sales[["tinglysningsDato","iAltKoebeSum", "beboelsesAreal", "antVaerelser", "antBadevaerelser"  , "postNr", "content"] ]
 p3view["antBadevaerelser"] = p3view["antBadevaerelser"].fillna("unknown")
 p3view["antVaerelser"] = p3view["antVaerelser"].replace("","unknown")
 
 p3view.dropna(subset=["iAltKoebeSum"], inplace=True)
 p3view = p3view[p3view["iAltKoebeSum"] != 0]
+  # match = re.search(r"Grunden, som ejendommen ligger på, er [\d]+ kvadratmeter", s)
+    # match = re.search(r"Grunden, som ejendommen|Ejendommen ligger på en grund|Ejendommen ligger på et grundstykke|Grunden udgør et areal ", s)
+ 
+groundarea =  []
+for s in p3view["content"]:
+    match = re.search(r"Ejendommen udgør i alt et areal på [\d]+ kvadratmeter", s)
+    if match:
+        clean = re.sub(r"[^\d]","", match.group())
+        groundarea.append(int(clean))
+        # groundarea.append(1)
+    # else:
+        # groundarea.append(-1)
+
+
 p3view.rename(columns={"iAltKoebeSum":"Sales Price", "tinglysningsDato":"Registration Date", "beboelsesAreal":"Living Area",
                "antVaerelser":"Number of Bedrooms", "antBadevaerelser":"Number of Bathrooms", "postNr":"Zip Code" },
               inplace=True)
 p3view.to_csv("p3view.csv")
+
+
+#%% 

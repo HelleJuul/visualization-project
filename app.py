@@ -17,7 +17,7 @@ import numpy as np
 ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ###
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY], suppress_callback_exceptions=True) 
-
+server = app.server
 # Setting the main layout with a fixed navbar at the top
 navbar = dbc.Navbar(
     dbc.Container(
@@ -152,10 +152,7 @@ page1 = [
             [  
                 html.Div("Choose Month", className="form-label"),
                 
-                m2price_slider,
-                
-                html.Div("If no sales were made in a given zip code area during a "
-                       "given month the average price per m2 is set to 0 DKK.", className="blockquote-footer")
+                m2price_slider
             ],
         ),
     ]
@@ -167,22 +164,26 @@ page1 = [
 @app.callback(
     Output("m2price_map", "figure"),
     Input("month_slider", "value"),
-    Input("zip_dropdown", "value"),
+    Input("zip_dropdown", "value")
     )
 def update_choropleth_with_m2_prices(month, selected_zips):
     '''Create and update the choropleth map of Fyn with the average m2 price'''
+    selected_month = dates[month]
     # Change the coloring according to the chosen month
     fig = px.choropleth(m2prices_map,
                 geojson=zip_code_areas, 
-                color=dates[month], 
+                color=selected_month, 
                 locations='id',
                 projection="mercator",
                 hover_name="name",
-                hover_data=["zip_code"],
+                hover_data={'id': False,
+                            "zip_code": True,
+                            selected_month: ':.2f'},
+                
                 range_color=[0,35000],
                 color_continuous_scale='Viridis',
                 template='simple_white',
-                labels={dates[month]: 'Average price per m2 in DKK'})
+                labels={selected_month: 'Average price per m2 in DKK'})
     # Zoom in on Fyn
     fig.update_geos(fitbounds="locations", visible=False)
     # Remove margins
@@ -191,19 +192,40 @@ def update_choropleth_with_m2_prices(month, selected_zips):
     fig.update_layout(coloraxis_colorbar_x=-0.08)
     # Change ticks on colorbar from the default 10k to 10000
     fig.update_coloraxes(colorbar_tickformat=',2f')
+    # Make the hover data look nice
+    area_zips_and_names = list(m2prices_map['zip_code'].apply(str) + " " + m2prices_map['name'])
+    fig.update_traces(hovertemplate='<b>%{customdata}</b><br>%{z:.2f} kr.', 
+                      customdata=area_zips_and_names)
+    # Color NaN areas grey (and still make the hover data look nice)
+    nan_filter = m2prices_map[selected_month].isna()
+    nan_area_ids = m2prices_map['id'][nan_filter]
+    nan_area_zips_and_names = list(m2prices_map['zip_code'][nan_filter].apply(str) + 
+                                   " " + 
+                                   m2prices_map['name'][nan_filter])
+    fig.add_trace(go.Choropleth(geojson = zip_code_areas,
+                                locationmode = "geojson-id",
+                                locations = nan_area_ids,
+                                z = [1] * len(nan_area_ids),
+                                colorscale = [[0, 'rgba(192,192,192,1)'],[1, 'rgba(192,192,192,1)']],
+                                colorbar = None,
+                                showscale = False,
+                                hovertemplate = '<b>%{customdata}</b>'+
+                                                '<br>'+
+                                                '<i>%{text}</i><extra></extra>',
+                                text = ['No sales'] * len(nan_area_ids),
+                                customdata = nan_area_zips_and_names
+                                ))
     # Highlight selected zips on the map
-    id_list = translate_zips_to_ids(selected_zips)
+    selected_areas_ids = translate_zips_to_ids(selected_zips)
     fig.add_trace(go.Choropleth(geojson=zip_code_areas,
                                 locationmode="geojson-id",
-                                locations=id_list,
-                                z = [1]*len(id_list),
+                                locations=selected_areas_ids,
+                                z = [1]*len(selected_areas_ids),
                                 colorscale = [[0, 'rgba(0,0,0,0)'],[1, 'rgba(0,0,0,0)']],
                                 colorbar=None,
                                 showscale =False,
                                 marker = {"line": {"color": "#F39C12", "width": 1}},
                                 hoverinfo='skip'))
-    #fig.update_traces(hovertemplate=""" <extra></extra> %{customdata[0]} """)
-    
     return  fig
 
 
@@ -232,7 +254,7 @@ def update_dropdown(clickData, selected_zips):
     '''Add regions selected on the choropleth map to the selected values in 
     the dropdown menu.'''
     if clickData:
-        zip_from_map = clickData['points'][0]['customdata'][0]
+        zip_from_map = clickData['points'][0]['customdata'][0:4]
         if zip_from_map not in selected_zips:
             selected_zips.append(zip_from_map)
     return selected_zips
@@ -266,8 +288,19 @@ def update_line_chart_with_m2_prices(month, selected_zips):
     fig.add_vline(x=dates[month], 
                   line_width=3, 
                   line_dash="dash", 
-                  line_color="#3398db")
+                  line_color="#3498DB")
+    # Add the average m2 price for all of Fyn for reference
+    fig.add_trace(go.Scatter(mode='lines',
+                             x = m2prices_line_chart['index'],
+                             y = m2prices_line_chart['fyn'],
+                             name="All of Fyn",
+                             marker_color='gray',
+                             opacity=0.2))
+    # Make the hover text look nicer
+    fig.update_traces(hovertemplate=None)
+    fig.update_layout(hovermode="x")
     return fig
+
 
 
 ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ### -o-o- ###
@@ -289,13 +322,15 @@ page2 = html.P("This is page 2!")
 
 p3view = pd.read_csv("p3view.csv")
 sales_volume = pd.read_csv("sales_volume_by_zip.csv")
-violin_fig = px.violin(p3view[p3view["Zip Code"]==5000], y="Sales Price")
+violin_fig = px.histogram(p3view[p3view["Zip Code"]==5000], x="Sales Price")
 violin_fig.update_layout(title={"text":"Sales Price Distribution",  "x":0.5})
-bar_chart = px.bar(sales_volume, x="month", y="5000")
+bar_chart = px.bar(sales_volume, x="month", y="5000", labels={"month":"Month", "5000":"Number of Sales"})
 bar_chart.update_layout(title={"text":"Number of Sales per Month",  "x":0.5})
 
 page3 = [
         html.H2(style={"text-align":"center"},children=["Area Information"]),
+        html.Div(style={"display":"inline-bock", "width":"20%","top":"10%","left":"10%", "position":"absolute"},
+                 children=[dbc.Toast(id="filters-used-infobox", style={"opacity":"0"},dismissable=True, header="Applied filters")]),
         html.Div(style = {"margin":"0 40% 0 40%"}, 
             children=[
                 dcc.Dropdown(id="zip_dropdown_page3",
@@ -308,6 +343,7 @@ page3 = [
                 dbc.Button("Filter Results", id="open-button-offcanvas-page-3",
                            n_clicks=0,),
                 ]),
+
         ]),
         html.Br(),
         html.Div(style={},
@@ -341,7 +377,7 @@ page3 = [
                                     children = [
                                     html.P("Price in DKK", style={"text-align":"center"}),
                                     html.Div(id="price-slider-info",style={"margin":"10px 5%"} ),
-                                    dcc.RangeSlider(id="price-slider-p3",min=0, max=100, tooltip={"placement": "bottom"}),
+                                    dcc.RangeSlider(id="price-slider-p3",min=0, max=2000,step=1000, tooltip={"placement": "bottom"}),
                                     ]
                               ),
                               html.Br(),
@@ -477,7 +513,7 @@ def update_p3_sales_plots(selected_zip, nclicks, zip_current, filter_area, area_
         id_called = ctx.triggered[0]["prop_id"].split(".")[0]    
     
     if id_called and "zip_dropdown" in id_called and selected_zip:
-        violin_fig = px.violin(p3view[p3view["Zip Code"]==selected_zip], y="Sales Price")
+        violin_fig = px.histogram(p3view[p3view["Zip Code"]==selected_zip], x="Sales Price")
         violin_fig.update_layout(title={"text":"Sales Price Distribution",  "x":0.5})
         bar_chart = px.bar(sales_volume, x="month", y=str(selected_zip), labels={"month":"Month",str(selected_zip):"Number of Sales"} )
         bar_chart.update_layout(title={"text":"Number of Sales per Month",  "x":0.5})
@@ -502,7 +538,7 @@ def update_p3_sales_plots(selected_zip, nclicks, zip_current, filter_area, area_
             if incl_unknown:
                 relevant_sales = pd.concat([relevant_sales, unknown_rooms])
         
-        violin_fig = px.violin(relevant_sales, y="Sales Price")
+        violin_fig = px.histogram(relevant_sales, x="Sales Price")
         violin_fig.update_layout(title={"text":"Sales Price Distribution",  "x":0.5})
         filtered_count = []
         for month in sales_volume["month"]:
@@ -510,7 +546,7 @@ def update_p3_sales_plots(selected_zip, nclicks, zip_current, filter_area, area_
             filtered_count.append(sum(map(map_func, relevant_sales.iterrows())))
         filtered_volume = pd.DataFrame(sales_volume["month"].copy(), columns=["month"])
         filtered_volume["Number of Sales"] = np.array(filtered_count)
-        bar_chart = px.bar(filtered_volume, x="month", y="Number of Sales", labels={"month":"Month"} )
+        bar_chart = px.bar(filtered_volume, x="month", y="Number of Sales", labels={"month":"Month",str(selected_zip):"Number of Sales"} )
         bar_chart.update_layout(title={"text":"Number of Sales per Month",  "x":0.5})
     return violin_fig, bar_chart
 
@@ -635,8 +671,43 @@ def max_input_min_bedrooms(max_min):
 def min_input_max_bedrooms(min_max):
     return min_max
 
+@app.callback(
+    Output("filters-used-infobox","style"),
+    Output("filters-used-infobox", "children"),
+    Input("button-apply-filters","n_clicks"),
+    State("switch-area-filter","value"),
+    State("area-slider-p3", "value"),
+    State("switch-price-filter","value"),
+    State("price-slider-p3", "value"),
+    State("switch-rooms-filter","value"),
+    State("input-min-bathrooms", "value"),
+    State("input-max-bathrooms", "value"),
+    State("input-min-bedrooms", "value"),
+    State("input-max-bedrooms", "value"),
+    State("room-check-unknown","value"),
+    )
+def update_filters_infobox(n_clicks, filter_area, area_lim, filter_price, price_lim, filter_rooms, min_bath, max_bath, min_bed, max_bed, incl_unknown):
+    if n_clicks and (filter_area or filter_price or filter_rooms):
+        children = []
+        if filter_price:
+            min_price = min(price_lim)
+            max_price = max(price_lim)
+            children.append(html.Div(children=[html.B("Price: "), html.Span(" {:3,d} to {:3,d} DKK".format(min_price, max_price)) ]))
 
-
+        if filter_area:
+            min_area = min(area_lim)
+            max_area = max(area_lim)
+            children.append(html.Div(children=[ html.B("Area: "), html.Span(f" {min_area} m2 to {max_area} m2") ]))
+        
+        if filter_rooms:
+            children.append(html.Div(children=[html.B("Num. Bathrooms: "), html.Span(f" {min_bath} to {max_bath}")]))
+            children.append(html.Div(children=[html.B("Num. Bedrooms: "), html.Span(f" {min_bed} to {max_bed}")]))     
+            if incl_unknown:
+                children.append(html.I("* Includes results w. unknown number of rooms"))
+            else:
+                children.append(html.I("* Does not include results w. unknown number of rooms"))
+        return {"opacity":"1"}, children
+    return {"opacity":"0"}, []
 # @app.callback(
 #     Output("total-sales-zipcode"),
 #     Input("zipcode-search-page3")
