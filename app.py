@@ -296,7 +296,7 @@ def translate_zips_to_ids(zips):
 #
 
 # A list with the months covered in the dataset (i.e. 2021-11)
-dates = list(m2prices_map.columns)[4:]
+dates = list(m2prices_map.columns)[4:-1]
 
 # Slider for choosing the month and year
 marks = {i: {'label': ""} for i in range(0, len(dates))}
@@ -326,25 +326,17 @@ m2price_dropdown = dcc.Dropdown(id="zip_dropdown",
 # The content of page 1 styled to be two rows
 page1 = [
         dbc.Container(
-            [                
-                html.H4(id="m2price_header", children="November 2021"), 
-            ],
-            style={'width':'50%', 'display':'inline-block', 'vertical-align':'top'}
-        ), 
-        dbc.Container(
-            [
-                html.H4("Development over Time"),
-            ], 
-            style={'width':'50%','display':'inline-block','vertical-align':'top'}
-        ),
-        dbc.Container(
-            [                
+            [   
+                html.H2("Average Price per m2"),
+                html.Br(),              
+                html.H4(id="m2price_header", children="November 2021"),              
                 dcc.Graph(id='m2price_map'),
             ],
             style={'width':'50%', 'display':'inline-block', 'vertical-align':'top'}
         ), 
         dbc.Container(
             [   
+                html.H4("Development over Time"),
                 html.Div("Choose Zip Code Areas", className="form-label"),
                 m2price_dropdown,
                 dcc.Graph(id="m2price_plot")
@@ -396,27 +388,22 @@ def update_choropleth_with_m2_prices(month, selected_zips):
     # Change ticks on colorbar from the default 10k to 10000
     fig.update_coloraxes(colorbar_tickformat=',2f')
     # Make the hover data look nice
-    area_zips_and_names = list(m2prices_map['zip_code'].apply(str) + " " + m2prices_map['name'])
     fig.update_traces(hovertemplate='<b>%{customdata}</b><br>%{z: .2f} kr.', 
-                      customdata=area_zips_and_names)
+                      customdata=m2prices_map.pretty_name)
     # Color NaN areas grey (and still make the hover data look nice)
-    nan_filter = m2prices_map[selected_month].isna()
-    nan_area_ids = m2prices_map['id'][nan_filter]
-    nan_area_zips_and_names = list(m2prices_map['zip_code'][nan_filter].apply(str) + 
-                                   " " + 
-                                   m2prices_map['name'][nan_filter])
+    nan_areas = m2prices_map[m2prices_map[selected_month].isna()]
     fig.add_trace(go.Choropleth(geojson = zip_code_areas,
                                 locationmode = "geojson-id",
-                                locations = nan_area_ids,
-                                z = [1] * len(nan_area_ids),
+                                locations = nan_areas.id,
+                                z = [1] * len(nan_areas.id),
                                 colorscale = [[0, 'rgba(192,192,192,1)'],[1, 'rgba(192,192,192,1)']],
                                 colorbar = None,
                                 showscale = False,
                                 hovertemplate = '<b>%{customdata}</b>'+
                                                 '<br>'+
                                                 '<i>%{text}</i><extra></extra>',
-                                text = ['No sales'] * len(nan_area_ids),
-                                customdata = nan_area_zips_and_names
+                                text = ['No sales'] * len(nan_areas.id),
+                                customdata = nan_areas.pretty_name
                                 ))
     # Highlight selected zips on the map
     selected_areas_ids = translate_zips_to_ids(selected_zips)
@@ -479,7 +466,7 @@ def update_line_chart_with_m2_prices(month, selected_zips):
                   markers=True,
                   template='simple_white',
                   color_discrete_sequence=px.colors.qualitative.Vivid,
-                  height=450,
+                  height=550,
                   labels={'index': 'Year and Month', 
                           'value': 'Average Price pr m2 in DKK',
                           'variable': 'Zip Code'})
