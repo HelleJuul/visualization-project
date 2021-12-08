@@ -18,6 +18,7 @@ ATTRIBUTES = ['tinglysningsDato',
               'iAltKoebeSum', 
               'beboelsesAreal', 
               'content',
+              'boligTypeTekst',
               'antBadevaerelser',
               'antVaerelser',
               'kommuneNavn', 
@@ -70,7 +71,7 @@ number_of_sales.to_csv("sales_volume_by_zip.csv")
 
 # fig.update_layout(mapbox = {'style': 'open-street-map'})
 #%%
-p3view = sales[["tinglysningsDato","iAltKoebeSum", "beboelsesAreal", "antVaerelser", "antBadevaerelser"  , "postNr", "content"] ]
+p3view = sales[["tinglysningsDato","iAltKoebeSum", "beboelsesAreal", "antVaerelser", "antBadevaerelser"  , "postNr", "content","boligTypeTekst"] ]
 p3view["antBadevaerelser"] = p3view["antBadevaerelser"].fillna("unknown")
 p3view["antVaerelser"] = p3view["antVaerelser"].replace("","unknown")
 
@@ -78,20 +79,46 @@ p3view.dropna(subset=["iAltKoebeSum"], inplace=True)
 p3view = p3view[p3view["iAltKoebeSum"] != 0]
   # match = re.search(r"Grunden, som ejendommen ligger på, er [\d]+ kvadratmeter", s)
     # match = re.search(r"Grunden, som ejendommen|Ejendommen ligger på en grund|Ejendommen ligger på et grundstykke|Grunden udgør et areal ", s)
- 
+
+p3view = p3view[p3view["content"] != ""]
+
+patterns = [
+    r"Grunden, som ejendommen ligger på, er [\d]+ kvadratmeter",
+    r"Ejendommen udgør i alt et areal på [\d]+ kvadratmeter",
+    r"Ejendommen ligger på en grund, der er [\d]+ kvadratmeter",
+    r"Ejendommen ligger på et grundstykke, der er [\d]+ kvadratmeter",
+    r"Grunden udgør et areal på [\d]+ kvadratmeter"
+        ]
+
+pattern = "|".join(patterns)
+
+#798
+# 1551
+# 3191
+# 5400
+# 8836
+# 8837
+# 8838
+# 8839
+
 groundarea =  []
-for s in p3view["content"]:
-    match = re.search(r"Ejendommen udgør i alt et areal på [\d]+ kvadratmeter", s)
-    if match:
+for i,tup in enumerate(zip(p3view["content"],p3view['boligTypeTekst'])):
+    s,t = tup
+    match = re.search(pattern, s)
+    if t == "Ejerlejlighed":
+        groundarea.append(0)
+    elif match:
         clean = re.sub(r"[^\d]","", match.group())
         groundarea.append(int(clean))
+    else:
+        print(i)
         # groundarea.append(1)
     # else:
         # groundarea.append(-1)
 
-
+p3view["Ground Area"] = np.array(groundarea)
 p3view.rename(columns={"iAltKoebeSum":"Sales Price", "tinglysningsDato":"Registration Date", "beboelsesAreal":"Living Area",
-               "antVaerelser":"Number of Bedrooms", "antBadevaerelser":"Number of Bathrooms", "postNr":"Zip Code" },
+               "antVaerelser":"Number of Bedrooms", "antBadevaerelser":"Number of Bathrooms", "postNr":"Zip Code", "boligTypeTekst":"Type"},
               inplace=True)
 p3view.to_csv("p3view.csv")
 
