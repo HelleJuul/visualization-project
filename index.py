@@ -16,9 +16,10 @@ navbar = dbc.Navbar(
                 align="center",
                 className="g-0",
             ),
+            dbc.NavItem(dbc.NavLink("Search in House Sales", href="/", active='exact')),
             dbc.NavItem(dbc.NavLink("Average Price per m2", href="/page-1", active='exact')),
-            dbc.NavItem(dbc.NavLink("Number of Sales", href="/page-2", active='exact')),
-            dbc.NavItem(dbc.NavLink("Overview of Zip Code Areas", href="/page-3", active='exact')),
+            dbc.NavItem(dbc.NavLink("Number of Houses Sold", href="/page-2", active='exact')),
+            dbc.NavItem(dbc.NavLink("Overview of Houses Sold", href="/page-3", active='exact')),
         ]
     ),
     color="primary",
@@ -56,4 +57,4 @@ def render_page_content(pathname):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=False)
+    app.run_server(debug=True)

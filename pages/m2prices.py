@@ -215,9 +215,9 @@ def update_line_chart_with_m2_prices(month, selected_zips):
                   markers=True,
                   template='simple_white',
                   color_discrete_sequence=px.colors.qualitative.Vivid,
-                  height=550,
+                  height=500,
                   labels={'index': 'Year and Month', 
-                          'value': 'Average Price pr m2 in DKK',
+                          'value': 'Average Price per m2 in DKK',
                           'variable': 'Zip Code'})
     # Force the y-axis to always start at zero
     fig.update_yaxes(rangemode="tozero")
@@ -238,4 +238,5 @@ def update_line_chart_with_m2_prices(month, selected_zips):
     # Make the hover text look nicer
     fig.update_traces(hovertemplate=None)
     fig.update_layout(hovermode="x")
+    fig.update_layout(margin=dict(l=0, r=0, b=0, t=20, pad=10))
     return fig

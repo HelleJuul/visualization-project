@@ -219,4 +219,5 @@ def update_line_chart_with_total_sales(rel_or_abs, selected_zips, date):
     # Make hover data look nice
     fig.update_traces(hovertemplate=None)
     fig.update_layout(hovermode="x")
+    fig.update_layout(margin=dict(l=0, r=0, b=0, t=20, pad=10))
     return fig

@@ -1,3 +1,11 @@
+.nav-link {
+    color: #fff;
+}
+
+.nav-link.active {
+    color: #18BC9C;
+}
+
 .rc-slider-mark-text {
     font-size: small;
     color: #212529;

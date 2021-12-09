@@ -49,8 +49,8 @@ boligTypeOptions = getCleanOptions(housesales['boligTypeTekst'])
 # design
 page2 = dbc.Container(
     [
-        html.H1(id="house_sales_header",
-                children="Search in house sales"),
+        html.H2(id="house_sales_header",
+                children="Search in House Sales"),
         html.Div(children=[
             html.Div(children=[
                 html.Div("Choose Zip Code Areas", className="form-label"),
