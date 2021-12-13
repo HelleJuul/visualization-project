@@ -6,9 +6,12 @@
     color: #18BC9C;
 }
 
+[role="tab"] {
+    color: gray;
+}
+
 .rc-slider-mark-text {
     font-size: small;
-    color: #212529;
     width: 50px;
     height: 19 px;
 }
@@ -19,14 +22,4 @@
 
 .rc-slider-handle:hover, .rc-slider-handle-click-focused:focus {
     border-color: #3498DB;
-}
-
-.Select--multi .Select-value {
-    border: 2px #F39C12;
-    color: white;
-}
-
-.Select-value-label, .Select-value-icon{
-    background-color: #F39C12;
-    color: white;
 }

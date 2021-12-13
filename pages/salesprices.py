@@ -181,13 +181,27 @@ def search_data(page2_zip_dropdown, start_date, end_date, page2_price_dropdown, 
    
     return search_result_housesales.to_json(date_format='iso', orient='split')
 
+
+def get_color(v):
+    if v <= 100000:
+        return 'red'
+    elif v <= 2000000:
+        return 'orange'
+    elif v <= 7000000:
+        return 'yellow'
+    else:
+        return 'green'
+
+# https://community.plotly.com/t/dynamic-zoom-for-mapbox/32658/5
+
 @app.callback(
     Output('indicator-graphic', 'figure'),
     Input('searchData', 'data'))
 def update_map(data):
     dff = pd.read_json(data, orient='split')
+    colors = [get_color(v) for v in dff.iAltKoebeSum]
     #print("call")
-    fig = px.scatter_mapbox(dff, lat="latitude", lon="longitude", color="iAltKoebeSum",
+    fig = px.scatter_mapbox(dff, lat="latitude", lon="longitude", color=colors,
                             height=640, hover_name='vejNavn', hover_data=["iAltKoebeSum", "husNr", "antBadevaerelser", "antVaerelser"])
     fig.update_geos(fitbounds='locations')
 

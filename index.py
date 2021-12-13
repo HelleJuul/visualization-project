@@ -2,7 +2,7 @@ from dash import Input, Output, dcc, html
 import dash_bootstrap_components as dbc
 
 from app import app
-from pages import salesprices, m2prices, totalsales, overview
+from pages import salesprices, m2prices, totalsales, overview, salesprices_and_overview
 
 # Setting the main layout with a fixed navbar at the top
 navbar = dbc.Navbar(
@@ -19,7 +19,7 @@ navbar = dbc.Navbar(
             dbc.NavItem(dbc.NavLink("Search in House Sales", href="/", active='exact')),
             dbc.NavItem(dbc.NavLink("Average Price per m2", href="/page-1", active='exact')),
             dbc.NavItem(dbc.NavLink("Number of Houses Sold", href="/page-2", active='exact')),
-            dbc.NavItem(dbc.NavLink("Overview of Houses Sold", href="/page-3", active='exact')),
+            #dbc.NavItem(dbc.NavLink("Overview of Houses Sold", href="/page-3", active='exact')),
         ]
     ),
     color="primary",
@@ -32,7 +32,6 @@ app.layout = dbc.Container(
         dcc.Location(id="url"),
         navbar,
         dbc.Container(id='page-content', class_name='main', style={"padding-top": "90px"}),
-        html.Hr()
     ],
     fluid=True,
 )
@@ -44,13 +43,13 @@ app.layout = dbc.Container(
     )
 def render_page_content(pathname):
     if pathname == "/":
-        return salesprices.page2
+        return salesprices_and_overview.page    #salesprices.page2
     elif pathname == "/page-1":
         return m2prices.page1
     elif pathname == "/page-2":
         return totalsales.page0
-    elif pathname == "/page-3":
-        return overview.page3
+    #elif pathname == "/page-3":
+    #    return overview.page3
     # If the user tries to reach a different page, return a 404 message
     else:
         return html.H1("404: Not found", className="text-danger")
