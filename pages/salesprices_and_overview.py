@@ -1,6 +1,7 @@
 from dash import Input, Output, State, dcc, html
 import dash_bootstrap_components as dbc
 
+import numpy as np
 import pandas as pd
 import json
 
@@ -445,6 +446,7 @@ def apply_filters(price_range, time_range, house_size_range, lot_size_range,
 )
 def update_map(data, clickData):
     df = pd.read_json(data)
+    color_scale = [(0, "#440154"), (0.03, "#443983"),(0.125,"#31688e"),(0.25,"#21918c"), (0.5,"#35b779"), (25/36,"#90d743") , (1, "#fde725")]
     fig = px.scatter_mapbox(df, 
                             lat="latitude", 
                             lon="longitude", 
@@ -455,13 +457,20 @@ def update_map(data, clickData):
                             hover_data=['salesDate', 'rooms', 'lotSize','buildYear', 'm2price', 'size', 'type'],
                             labels={"price": "Price in DKK"},
                             template="simple_white",
-                            range_color=[0, 10_000_000],
+                            range_color=[1e5, 10_000_000],
+                            color_continuous_scale=color_scale
                             )
     fig.update_traces(hovertemplate='<b>%{text}</b><br>Price %{marker.color: ,} kr.',
                       text=df.address)
-    fig.update_layout(mapbox_style="open-street-map")
+    #fig.update_layout(mapbox_style="open-street-map")
+    fig.update_layout(mapbox_style="carto-positron")
     # Move colorbar to the left
     fig.update_layout(coloraxis_colorbar_x=-0.25)
+    fig.update_layout(coloraxis_colorbar=dict(
+    title="Price",
+#    tickvals=[0, 632, 949, 1378, 1975, 2811, 3146],
+#    ticktext=["<100K","500K", "1M","2M",  "4M", "8M", "10M"],
+))
     # Change ticks on colorbar away from 3M to 3,000,000
     fig.update_coloraxes(colorbar_tickformat=',')
     # Making markers bigger
