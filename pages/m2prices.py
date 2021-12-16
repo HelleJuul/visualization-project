@@ -32,7 +32,7 @@ with open('data/m2prices_for_line_chart.csv', 'r') as f:
 def translate_zips_to_ids_and_colors(zips):
     '''Return a list with the IDs corresponding to the zip codes in zips'''
     ids = []
-    colors = px.colors.qualitative.Plotly    # 11 colors
+    colors = px.colors.qualitative.Vivid    # 11 colors
     for i, zip_code in enumerate(zips):
         color_index = i % 11
         color = colors[color_index]
@@ -110,20 +110,12 @@ page1 = [
 @app.callback(
     Output("m2price_map", "figure"),
     Input("zip_dropdown", "value"),
-    Input("m2price_plot", "clickData"),
     Input("month_slider", "value"),
     )
-def update_choropleth_with_m2_prices(selected_zips, clickData, month):
+def update_choropleth_with_m2_prices(selected_zips, month):
     '''Create and update the choropleth map of Fyn with the average m2 price'''
     selected_month = "2021-11"
-    ctx = callback_context
-    id_called = None
-    if ctx.triggered:
-        id_called = ctx.triggered[0]["prop_id"].split(".")[0]
-    if id_called and id_called == "month_slider" and month:
-        selected_month = dates[month]
-    if id_called and id_called == "m2price_plot":
-        selected_month = clickData["points"][0]['x'][0:7]
+    selected_month = dates[month]
     # Change the coloring according to the chosen month
     fig = px.choropleth(m2prices_map,
                 geojson=zip_code_areas, 
@@ -131,7 +123,7 @@ def update_choropleth_with_m2_prices(selected_zips, clickData, month):
                 locations='id',
                 projection="mercator",
                 range_color=[0,35000],
-                color_continuous_scale='Purples',
+                color_continuous_scale="PuBu",
                 height=550,
                 template='simple_white',
                 labels={selected_month: 'Average price per m2 in DKK'})
@@ -178,28 +170,18 @@ def update_choropleth_with_m2_prices(selected_zips, clickData, month):
 
 @app.callback(
     Output("m2price_header", "children"),
-    Input("m2price_plot", "clickData"),
     Input("month_slider", "value")
     )
-def update_title_to_match_chosen_month(clickData, month):
+def update_title_to_match_chosen_month(month):
     '''Change the title to show the chosen month and year.'''
     title = "November 2021"
     month_names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
                    'August', 'September', 'October', 'November', 'December']
-    ctx = callback_context
-    id_called = None
-    if ctx.triggered:
-        id_called = ctx.triggered[0]["prop_id"].split(".")[0]
-    if id_called and id_called == "m2price_plot":
-        year, month_number, day = clickData["points"][0]['x'].split("-")
-        month = month_names[int(month_number) - 1]
-        title = month + " " + year
-    if id_called and id_called == "month_slider" and month:
-        time = dates[month]
-        month_index = int(time[-2:]) - 1
-        month = month_names[month_index]
-        year = time[:4]
-        title = month + " " + year
+    time = dates[month]
+    month_index = int(time[-2:]) - 1
+    month = month_names[month_index]
+    year = time[:4]
+    title = month + " " + year
     return  title
 
 
@@ -221,10 +203,9 @@ def update_dropdown(clickData, selected_zips):
 @app.callback(
     Output("m2price_plot", "figure"),
     Input("zip_dropdown", "value"),
-    Input("m2price_plot", "clickData"),
     Input("month_slider", "value"),
     )
-def update_line_chart_with_m2_prices(selected_zips, clickData, month):
+def update_line_chart_with_m2_prices(selected_zips, month):
     '''Create and update the line chart showing the development in m2 prices
     in the selected zip code areas'''
     # Draw a line for each of the selected zip code areas
@@ -234,7 +215,7 @@ def update_line_chart_with_m2_prices(selected_zips, clickData, month):
                   range_y=[0, 35000], 
                   markers=True,
                   template='simple_white',
-                  color_discrete_sequence=px.colors.qualitative.Plotly,
+                  color_discrete_sequence=px.colors.qualitative.Vivid,
                   height=500,
                   labels={'index': 'Year and Month', 
                           'value': 'Average Price per m2 in DKK',
@@ -245,14 +226,7 @@ def update_line_chart_with_m2_prices(selected_zips, clickData, month):
     fig.update_layout(yaxis={'tickformat': ',2f'})
     # Add a vertical line in the plot showing the chosen month and year
     x_position = "2021-11"
-    ctx = callback_context
-    id_called = None
-    if ctx.triggered:
-        id_called = ctx.triggered[0]["prop_id"].split(".")[0]
-    if id_called and id_called == "month_slider" and month:
-        x_position = dates[month]
-    if id_called and id_called == "m2price_plot":
-        x_position = clickData["points"][0]['x'][0:7]        
+    x_position = dates[month]       
     fig.add_vline(x=x_position, 
                   line_width=3, 
                   line_dash="dash", 
@@ -276,5 +250,7 @@ def update_line_chart_with_m2_prices(selected_zips, clickData, month):
     Input("m2price_plot", "clickData")
 )
 def update_slider_on_plot_click(clickData):
+    selected = len(dates) - 1
     if clickData:
-        return dates.index(clickData['points'][0]['x'][0:7])
+        selected = dates.index(clickData['points'][0]['x'][0:7])
+    return selected

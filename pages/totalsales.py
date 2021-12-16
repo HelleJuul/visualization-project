@@ -107,29 +107,20 @@ page0 = [
     Output("total_sales_map", "figure"),
     Input("rel_abs_radio", "value"),
     Input("zip_dropdown_total_sales", "value"),
-    Input("total_sales_bar", "clickData"),
     Input("month_slider_total_sales", "value"),
     )
-def update_choropleth_with_total_sales(rel_or_abs, selected_zips, clickData, date):
+def update_choropleth_with_total_sales(rel_or_abs, selected_zips, date):
     '''Create and update the choropleth map of Fyn with number of sold houses'''
     quarter = "2021-Q4"
     if rel_or_abs == "rel_num":
         color = "rel_sales"
         range_color = [0, 75]
-        color_scale = "Blues"
+        color_scale = "Purples"
     else:
         color = "sales"
         range_color = [0, 150]
         color_scale = "Greens"
-    
-    ctx = callback_context
-    id_called = None
-    if ctx.triggered:
-        id_called = ctx.triggered[0]["prop_id"].split(".")[0]
-    if id_called and id_called == "month_slider_total_sales" and date:
-        quarter = quarters[date]
-    if id_called and id_called == "total_sales_bar":
-        quarter = clickData["points"][0]["x"]
+    quarter = quarters[date]
     total_sales_selected_quarter = total_sales[total_sales.quarter_name==quarter]
     # Change the coloring according to the chosen month
     fig = px.choropleth(total_sales_selected_quarter,
@@ -169,20 +160,12 @@ def update_choropleth_with_total_sales(rel_or_abs, selected_zips, clickData, dat
 
 @app.callback(
     Output("total_sales_header", "children"),
-    Input("total_sales_bar", "clickData"),
     Input("month_slider_total_sales", "value"),
     )
-def update_title_to_match_chosen_quarter_total_sales(clickData, date):
+def update_title_to_match_chosen_quarter_total_sales(date):
     '''Change the title to show the chosen month and year.'''
     quarter = "2021-Q4"
-    ctx = callback_context
-    id_called = None
-    if ctx.triggered:
-        id_called = ctx.triggered[0]["prop_id"].split(".")[0]
-    if id_called and id_called == "month_slider_total_sales" and date:
-        quarter = quarters[date]
-    if id_called and id_called == "total_sales_bar":
-        quarter = clickData["points"][0]["x"]
+    quarter = quarters[date]
     return quarter
 
 
@@ -205,10 +188,9 @@ def update_dropdown_total_sales(clickData, selected_zips):
     Output("total_sales_bar", "figure"),
     Input("rel_abs_radio", "value"),
     Input("zip_dropdown_total_sales", "value"),
-    Input("total_sales_bar", "clickData"),
     Input("month_slider_total_sales", "value"),
     )
-def update_bar_chart_with_total_sales(rel_or_abs, selected_zips, clickData, date):
+def update_bar_chart_with_total_sales(rel_or_abs, selected_zips, date):
     '''Create and update the line chart showing the development in m2 prices
     in the selected zip code areas'''
     if len(selected_zips) == 0:
@@ -236,17 +218,9 @@ def update_bar_chart_with_total_sales(rel_or_abs, selected_zips, clickData, date
     fig.update_yaxes(title_font=dict(size=10))
     # Add a rectangle to highlight the selected quarter
     quarter = "2021-Q4"
-    ctx = callback_context
-    id_called = None
-    if ctx.triggered:
-        id_called = ctx.triggered[0]["prop_id"].split(".")[0]
-    if id_called and id_called == "month_slider_total_sales" and date:
-        quarter = quarters[date]
-    if id_called and id_called == "total_sales_bar":
-        quarter = clickData["points"][0]["x"]
+    quarter = quarters[date]
     fig.add_vrect(x0=quarter, x1=quarter, col=1,
               fillcolor="green", opacity=0.10, line_width=45)
-
     # Make hover data look nice
     fig.update_traces(hovertemplate=None)
     fig.update_layout(hovermode="x")
@@ -259,5 +233,7 @@ def update_bar_chart_with_total_sales(rel_or_abs, selected_zips, clickData, date
     Input("total_sales_bar", "clickData")
 )
 def update_slider_on_plot_click(clickData):
+    selected = len(quarters)-1
     if clickData:
-        return quarters.index(clickData['points'][0]['x'])
+        selected = quarters.index(clickData['points'][0]['x'])
+    return selected
