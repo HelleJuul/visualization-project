@@ -96,6 +96,10 @@ page0 = [
             ], 
             style={'width':'50%','display':'inline-block', 'vertical-align':'top'}
         ),
+        dbc.Container(
+            html.P("(*) Note that the data does not cover the last days in 2021-Q4. This can falsely appear as a drop in sales."),
+            style={'font-size': '12px', 'margin-top': '40px', 'color': 'gray'}
+        )
     ]
 
 
@@ -115,11 +119,9 @@ def update_choropleth_with_total_sales(rel_or_abs, selected_zips, date):
     if rel_or_abs == "rel_num":
         color = "rel_sales"
         range_color = [0, 75]
-        color_scale = "Purples"
     else:
         color = "sales"
         range_color = [0, 150]
-        color_scale = "Greens"
     quarter = quarters[date]
     total_sales_selected_quarter = total_sales[total_sales.quarter_name==quarter]
     # Change the coloring according to the chosen month
@@ -129,7 +131,7 @@ def update_choropleth_with_total_sales(rel_or_abs, selected_zips, date):
                 locations='id',
                 projection="mercator",
                 range_color=range_color,
-                color_continuous_scale=color_scale,
+                color_continuous_scale=[[0, 'white'], [1, '#222222']],
                 height=450,
                 template='simple_white',
                 labels={"sales": 'Number of Sales',
@@ -164,8 +166,10 @@ def update_choropleth_with_total_sales(rel_or_abs, selected_zips, date):
     )
 def update_title_to_match_chosen_quarter_total_sales(date):
     '''Change the title to show the chosen month and year.'''
-    quarter = "2021-Q4"
+    quarter = "2021-Q4 (*)"
     quarter = quarters[date]
+    if date == len(quarters) - 1:
+        quarter = quarters[date] + " (*)"
     return quarter
 
 
@@ -218,7 +222,7 @@ def update_bar_chart_with_total_sales(rel_or_abs, selected_zips, date):
     fig.update_yaxes(title_font=dict(size=10))
     # Add a rectangle to highlight the selected quarter
     quarter = "2021-Q4"
-    quarter = quarters[date]
+    quarter = quarters[date]      
     fig.add_vrect(x0=quarter, x1=quarter, col=1,
               fillcolor="green", opacity=0.10, line_width=45)
     # Make hover data look nice

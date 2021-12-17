@@ -123,7 +123,7 @@ def update_choropleth_with_m2_prices(selected_zips, month):
                 locations='id',
                 projection="mercator",
                 range_color=[0,35000],
-                color_continuous_scale="PuBu",
+                color_continuous_scale=[[0, 'white'], [1, '#222222']],
                 height=550,
                 template='simple_white',
                 labels={selected_month: 'Average price per m2 in DKK'})
@@ -144,7 +144,7 @@ def update_choropleth_with_m2_prices(selected_zips, month):
                                 locationmode = "geojson-id",
                                 locations = nan_areas.id,
                                 z = [1] * len(nan_areas.id),
-                                colorscale = [[0, 'rgba(192,192,192,1)'],[1, 'rgba(192,192,192,1)']],
+                                colorscale = [[0, "#e8baba"],[1, '#e8baba']],
                                 colorbar = None,
                                 showscale = False,
                                 hovertemplate = '<b>%{customdata}</b>'+
